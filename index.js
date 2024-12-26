@@ -24,7 +24,7 @@ async function run() {
   try {
     const db = client.db("FlavorTaleDB");
     const foodCollection = db.collection("Foods");
-    const purchaseCollection = db.collection("Purchases"); // New purchases collection
+    const purchaseCollection = db.collection("Purchases");
 
     // Get all food items
     app.get("/foods", async (req, res) => {
@@ -45,9 +45,7 @@ async function run() {
       }
 
       try {
-        const foods = await foodCollection
-          .find({ "AddBy.Email": email }) 
-          .toArray();
+        const foods = await foodCollection.find({ "AddBy.Email": email }).toArray();
 
         if (foods.length === 0) {
           return res.status(404).send({ message: "No foods found for this email." });
@@ -77,8 +75,12 @@ async function run() {
     // Post a new food item
     app.post("/foods", async (req, res) => {
       const newFood = req.body;
-      const result = await foodCollection.insertOne(newFood);
-      res.status(201).send(result);
+      try {
+        const result = await foodCollection.insertOne(newFood);
+        res.status(201).send(result);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to add food" });
+      }
     });
 
     // Update a food item by ID
@@ -86,9 +88,8 @@ async function run() {
       const id = req.params.id;
       const updatedFood = req.body;
       const filter = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: updatedFood,
-      };
+      const updateDoc = { $set: updatedFood };
+
       try {
         const result = await foodCollection.updateOne(filter, updateDoc);
         res.send(result);
@@ -101,61 +102,39 @@ async function run() {
     app.post("/purchases", async (req, res) => {
       const purchase = req.body;
 
-      // Ensure all required fields are provided
-      if (
-        !purchase.foodId ||
-        !purchase.foodName ||
-        !purchase.price ||
-        !purchase.quantity ||
-        !purchase.buyerEmail
-      ) {
-        return res
-          .status(400)
-          .send({ message: "All fields are required to make a purchase." });
+      if (!purchase.foodId || !purchase.foodName || !purchase.price || !purchase.quantity || !purchase.buyerEmail) {
+        return res.status(400).send({ message: "All fields are required to make a purchase." });
       }
 
       try {
-        // Update the food quantity
-        const food = await foodCollection.findOne({
-          _id: new ObjectId(purchase.foodId),
-        });
+        const food = await foodCollection.findOne({ _id: new ObjectId(purchase.foodId) });
 
         if (!food) {
           return res.status(404).send({ message: "Food not found" });
         }
 
-        else if (food.Quantity < purchase.quantity) {
-          return res
-            .status(400)
-            .send({ message: "Insufficient stock available." });
+        if (food.Quantity < purchase.quantity) {
+          return res.status(400).send({ message: "Insufficient stock available." });
         }
 
-        // Insert the purchase record
-        else{
-          purchase.buyingDate = new Date();
-          const result = await purchaseCollection.insertOne(purchase);
-          res.status(201).send(result);
-        }
-
+        purchase.buyingDate = new Date();
+        const result = await purchaseCollection.insertOne(purchase);
+        res.status(201).send(result);
       } catch (error) {
         res.status(500).json({ error: "Failed to create purchase" });
       }
     });
 
     // Get all purchases for a specific user
-    app.get("/purchases", async (req, res) => {
-      const buyerEmail = req.query.email;
+    app.get("/purchases/email", async (req, res) => {
+      const { email } = req.query;
 
-      if (!buyerEmail) {
-        return res
-          .status(400)
-          .send({ message: "Buyer email is required to fetch purchases." });
+      if (!email) {
+        return res.status(400).send({ message: "Buyer email is required to fetch purchases." });
       }
 
       try {
-        const purchases = await purchaseCollection
-          .find({ buyerEmail })
-          .toArray();
+        const purchases = await purchaseCollection.find({ buyerEmail: email }).toArray();
         res.send(purchases);
       } catch (error) {
         res.status(500).json({ error: "Failed to fetch purchases" });
