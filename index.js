@@ -141,6 +141,21 @@ async function run() {
       }
     });
 
+     // Delete a purchase by ID
+     app.delete("/purchases/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const result = await purchaseCollection.deleteOne({ _id: new ObjectId(id) });
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ message: "Purchase not found" });
+        }
+        res.send({ message: "Purchase deleted successfully", result });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to delete purchase" });
+      }
+    });
+
     console.log("Connected to MongoDB successfully!");
   } finally {
     // Do nothing here to keep the connection alive
