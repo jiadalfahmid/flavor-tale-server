@@ -61,6 +61,22 @@ async function run() {
       res.status(201).send(result);
     });
 
+    // Update a food item by ID
+        app.put("/foods/:id", async (req, res) => {
+          const id = req.params.id;
+          const updatedFood = req.body;
+          const filter = { _id: new ObjectId(id) };
+          const updateDoc = {
+            $set: updatedFood,
+          };
+          try {
+            const result = await foodCollection.updateOne(filter, updateDoc);
+            res.send(result);
+          } catch (error) {
+            res.status(500).json({ error: "Failed to update food" });
+          }
+        });
+
     console.log("Connected to MongoDB successfully!");
   } finally {
     // Do nothing here to keep the connection alive
