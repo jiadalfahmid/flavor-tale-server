@@ -1,3 +1,4 @@
+// Existing imports and setup
 const express = require("express");
 const cors = require("cors");
 const app = express();
@@ -23,6 +24,7 @@ async function run() {
   try {
     const db = client.db("FlavorTaleDB");
     const foodCollection = db.collection("Foods");
+    const purchaseCollection = db.collection("Purchases"); // New purchases collection
 
     // Get all food items
     app.get("/foods", async (req, res) => {
@@ -31,6 +33,29 @@ async function run() {
         res.send(foods);
       } catch (error) {
         res.status(500).json({ error: "Failed to fetch foods" });
+      }
+    });
+
+    // Get food items by AddedByEmail
+    app.get("/foods/email", async (req, res) => {
+      const { email } = req.query;
+
+      if (!email) {
+        return res.status(400).send({ message: "Email is required." });
+      }
+
+      try {
+        const foods = await foodCollection
+          .find({ "AddBy.Email": email }) 
+          .toArray();
+
+        if (foods.length === 0) {
+          return res.status(404).send({ message: "No foods found for this email." });
+        }
+
+        res.send(foods);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch foods by email" });
       }
     });
 
@@ -52,30 +77,90 @@ async function run() {
     // Post a new food item
     app.post("/foods", async (req, res) => {
       const newFood = req.body;
-      if (!newFood.FoodName || !newFood.FoodPrice) {
-        return res
-          .status(400)
-          .send({ message: "Name and price are required." });
-      }
       const result = await foodCollection.insertOne(newFood);
       res.status(201).send(result);
     });
 
     // Update a food item by ID
-        app.put("/foods/:id", async (req, res) => {
-          const id = req.params.id;
-          const updatedFood = req.body;
-          const filter = { _id: new ObjectId(id) };
-          const updateDoc = {
-            $set: updatedFood,
-          };
-          try {
-            const result = await foodCollection.updateOne(filter, updateDoc);
-            res.send(result);
-          } catch (error) {
-            res.status(500).json({ error: "Failed to update food" });
-          }
+    app.put("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedFood = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedFood,
+      };
+      try {
+        const result = await foodCollection.updateOne(filter, updateDoc);
+        res.send(result);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to update food" });
+      }
+    });
+
+    // Create a new purchase
+    app.post("/purchases", async (req, res) => {
+      const purchase = req.body;
+
+      // Ensure all required fields are provided
+      if (
+        !purchase.foodId ||
+        !purchase.foodName ||
+        !purchase.price ||
+        !purchase.quantity ||
+        !purchase.buyerEmail
+      ) {
+        return res
+          .status(400)
+          .send({ message: "All fields are required to make a purchase." });
+      }
+
+      try {
+        // Update the food quantity
+        const food = await foodCollection.findOne({
+          _id: new ObjectId(purchase.foodId),
         });
+
+        if (!food) {
+          return res.status(404).send({ message: "Food not found" });
+        }
+
+        else if (food.Quantity < purchase.quantity) {
+          return res
+            .status(400)
+            .send({ message: "Insufficient stock available." });
+        }
+
+        // Insert the purchase record
+        else{
+          purchase.buyingDate = new Date();
+          const result = await purchaseCollection.insertOne(purchase);
+          res.status(201).send(result);
+        }
+
+      } catch (error) {
+        res.status(500).json({ error: "Failed to create purchase" });
+      }
+    });
+
+    // Get all purchases for a specific user
+    app.get("/purchases", async (req, res) => {
+      const buyerEmail = req.query.email;
+
+      if (!buyerEmail) {
+        return res
+          .status(400)
+          .send({ message: "Buyer email is required to fetch purchases." });
+      }
+
+      try {
+        const purchases = await purchaseCollection
+          .find({ buyerEmail })
+          .toArray();
+        res.send(purchases);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch purchases" });
+      }
+    });
 
     console.log("Connected to MongoDB successfully!");
   } finally {
