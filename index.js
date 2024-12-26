@@ -34,20 +34,32 @@ async function run() {
       }
     });
 
-     // Get a single food item by ID
-        app.get("/foods/:id", async (req, res) => {
-          const id = req.params.id;
-          const query = { _id: new ObjectId(id) };
-          try {
-            const food = await foodCollection.findOne(query);
-            if (!food) {
-              return res.status(404).send({ message: "Food not found" });
-            }
-            res.send(food);
-          } catch (error) {
-            res.status(500).json({ error: "Failed to fetch food" });
-          }
-        });
+    // Get a single food item by ID
+    app.get("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      try {
+        const food = await foodCollection.findOne(query);
+        if (!food) {
+          return res.status(404).send({ message: "Food not found" });
+        }
+        res.send(food);
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch food" });
+      }
+    });
+
+    // Post a new food item
+    app.post("/foods", async (req, res) => {
+      const newFood = req.body;
+      if (!newFood.FoodName || !newFood.FoodPrice) {
+        return res
+          .status(400)
+          .send({ message: "Name and price are required." });
+      }
+      const result = await foodCollection.insertOne(newFood);
+      res.status(201).send(result);
+    });
 
     console.log("Connected to MongoDB successfully!");
   } finally {
