@@ -83,8 +83,15 @@ async function run() {
 
     // Get all food items
     app.get("/foods", async (req, res) => {
+      const search = req.query.search
+      let query = {
+        FoodName: {
+          $regex: search,
+          $options: 'i'
+        }
+      }
       try {
-        const foods = await foodCollection.find().toArray();
+        const foods = await foodCollection.find(query).toArray();
         res.send(foods);
       } catch (error) {
         res.status(500).json({ error: "Failed to fetch foods" });
@@ -131,6 +138,7 @@ async function run() {
       }
     });
 
+    
     // Post a new food item
     app.post("/foods", async (req, res) => {
       const newFood = req.body;
@@ -158,7 +166,7 @@ async function run() {
     });
 
     // Create a new purchase
-    app.post("/purchases", verifyToken, async (req, res) => {
+    app.post("/purchases", async (req, res) => {
       const purchase = req.body;
 
       if (
