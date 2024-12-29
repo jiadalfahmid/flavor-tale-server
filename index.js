@@ -11,7 +11,12 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173",
+      "https://flavor-tale.netlify.app",
+      "https://flavor-tales.web.app",
+      "https://flavor-tales.firebaseapp.com"
+    ],
     credentials: true,
   })
 );
@@ -230,7 +235,7 @@ async function run() {
     });
 
     // Delete a purchase by ID
-    app.delete("/purchases/:id", verifyToken, async (req, res) => {
+    app.delete("/purchases/:id", async (req, res) => {
       const id = req.params.id;
 
       try {
